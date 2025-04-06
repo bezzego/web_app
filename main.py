@@ -10,19 +10,28 @@ import os
 def fetch_coordinates(address, api_key, api_url):
     params = {
         'apikey': api_key,
-        'geocode': address,
+        'geocode': f'Москва, {address}',  # добавляем контекст города
         'format': 'json'
     }
 
     response = requests.get(api_url, params=params)
     response.raise_for_status()
 
-    try:
-        pos = response.json()['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos']
-        longitude, latitude = map(float, pos.split())
-        return latitude, longitude
-    except (IndexError, KeyError):
+    data = response.json()
+    feature_members = data['response']['GeoObjectCollection']['featureMember']
+
+    if not feature_members:
         raise ValueError('Адрес не найден.')
+
+    geo_object = feature_members[0]['GeoObject']
+    precision = geo_object['metaDataProperty']['GeocoderMetaData']['precision']
+
+    if precision not in ['exact', 'number', 'near']:  # точные уровни: дом, номер, рядом
+        raise ValueError('Адрес найден неточно. Уточните адрес (например: улица, дом).')
+
+    pos = geo_object['Point']['pos']
+    longitude, latitude = map(float, pos.split())
+    return latitude, longitude
 
 
 def load_coffee_data(filepath, encoding='CP1251'):
@@ -77,15 +86,19 @@ def main():
     api_url = os.getenv('GEOCODER_API_URL')
     data_file = 'coffee.json'
 
-    address = input('Где вы находитесь? ')
-    user_location = fetch_coordinates(address, api_key, api_url)
+    address = input('Введите ваш адрес в Москве (например, Арбат, 10): ')
+    try:
+        user_location = fetch_coordinates(address, api_key, api_url)
+    except ValueError as error:
+        print(f"Ошибка: {error}")
+        return
 
     coffee_data = load_coffee_data(data_file)
     cafes_with_distances = calculate_distances_to_user(coffee_data, user_location)
     closest_cafes = get_closest_cafes(cafes_with_distances)
 
-    print(f'Ваши координаты: {user_location}\n')
-    print('Пять ближайших кофеен:')
+    print(f'\nВаши координаты: {user_location}')
+    print('\nПять ближайших кофеен:')
     pprint(closest_cafes)
 
     create_map(user_location, closest_cafes)
