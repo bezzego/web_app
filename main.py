@@ -7,31 +7,23 @@ from dotenv import load_dotenv
 import os
 
 
-def fetch_coordinates(address, api_key, api_url):
-    params = {
-        'apikey': api_key,
-        'geocode': f'Москва, {address}',  # добавляем контекст города
-        'format': 'json'
-    }
-
-    response = requests.get(api_url, params=params)
+def fetch_coordinates(apikey, address):
+    base_url = "https://geocode-maps.yandex.ru/1.x"
+    response = requests.get(base_url, params={
+        "geocode": address,
+        "apikey": apikey,
+        "format": "json",
+    })
     response.raise_for_status()
 
-    data = response.json()
-    feature_members = data['response']['GeoObjectCollection']['featureMember']
+    found_places = response.json()['response']['GeoObjectCollection']['featureMember']
 
-    if not feature_members:
+    if not found_places:
         raise ValueError('Адрес не найден.')
 
-    geo_object = feature_members[0]['GeoObject']
-    precision = geo_object['metaDataProperty']['GeocoderMetaData']['precision']
-
-    if precision not in ['exact', 'number', 'near']:  # точные уровни: дом, номер, рядом
-        raise ValueError('Адрес найден неточно. Уточните адрес (например: улица, дом).')
-
-    pos = geo_object['Point']['pos']
-    longitude, latitude = map(float, pos.split())
-    return latitude, longitude
+    most_relevant = found_places[0]
+    lon, lat = most_relevant['GeoObject']['Point']['pos'].split(" ")
+    return float(lat), float(lon)  # возвращаем в формате (latitude, longitude)
 
 
 def load_coffee_data(filepath, encoding='CP1251'):
@@ -83,12 +75,11 @@ def main():
     load_dotenv()
 
     api_key = os.getenv('API_KEY')
-    api_url = os.getenv('GEOCODER_API_URL')
     data_file = 'coffee.json'
 
-    address = input('Введите ваш адрес в Москве (например, Арбат, 10): ')
+    address = input('Введите ваш адрес: ')
     try:
-        user_location = fetch_coordinates(address, api_key, api_url)
+        user_location = fetch_coordinates(api_key, address)
     except ValueError as error:
         print(f"Ошибка: {error}")
         return
