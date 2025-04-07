@@ -1,7 +1,6 @@
 import json
 import requests
 from geopy.distance import geodesic
-from pprint import pprint
 import folium
 from dotenv import load_dotenv
 import os
@@ -88,13 +87,9 @@ def main():
     cafes_with_distances = calculate_distances_to_user(coffee_data, user_location)
     closest_cafes = get_closest_cafes(cafes_with_distances)
 
-    print(f'\nВаши координаты: {user_location}')
-    print('\nПять ближайших кофеен:')
-    pprint(closest_cafes)
+    
 
     create_map(user_location, closest_cafes)
-    print('\nКарта сохранена в файл index.html')
-
 
 if __name__ == '__main__':
     main()
